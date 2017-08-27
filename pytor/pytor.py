@@ -67,6 +67,11 @@ class PyTOR:
                 queue.run_until_complete(callback._call(Node(id=node, published=published, last_status=last,
                                                              address=address)))
 
+                node = None
+                published = None
+                last = None
+                address = None
+
         finally:
             if response is not None:
                 response.close()
