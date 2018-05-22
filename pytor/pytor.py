@@ -19,6 +19,7 @@ class PyTOR:
         finally:
             self.thread_manager.stop()
 
+    @asyncio.coroutine
     def _start(self, callback):
         response = None
         queue = asyncio.get_event_loop()
@@ -28,6 +29,7 @@ class PyTOR:
             result = response.raw.data
             if result is None:
                 pass
+
             decoded_result = result.decode("UTF-8")
 
             node = None
@@ -43,17 +45,14 @@ class PyTOR:
 
                 if array[0] == "ExitNode":
                     node = array[1]
+                elif array[0] == "Published":
+                    published = array[1] + " " + array[2]
+                elif array[0] == "LastStatus":
+                    last = array[1] + " " + array[2]
+                elif array[0] == "ExitAddress":
+                    address = array[1]  # only exit-address
                 else:
-                    if array[0] == "Published":
-                        published = array[1] + " " + array[2]
-                    else:
-                        if array[0] == "LastStatus":
-                            last = array[1] + " " + array[2]
-                        else:
-                            if array[0] == "ExitAddress":
-                                address = array[1]  # only exit-address
-                            else:
-                                print("Unknown element: " + array[0])
+                    raise ValueError("Unknown element: " + array[0])
 
                 if node is None:
                     continue
@@ -64,8 +63,8 @@ class PyTOR:
                 if address is None:
                     continue
 
-                queue.run_until_complete(callback._call(Node(id=node, published=published, last_status=last,
-                                                             address=address)))
+                queue.run_until_complete(callback(Node(id=node, published=published, last_status=last,
+                                                       address=address)))
 
                 node = None
                 published = None
@@ -85,18 +84,6 @@ class Node:
         self.published = published
         self.last_status = last_status
         self.address = address
-
-
-class Callback:
-    @asyncio.coroutine
-    def _call(self, node: Node):
-        if node is None:
-            pass
-
-        self.call(node)
-
-    def call(self, node: Node):
-        pass
 
 
 class ThreadManager:
