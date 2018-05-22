@@ -6,11 +6,43 @@ URL = "https://check.torproject.org/exit-addresses"
 HEADERS = {"Content-Type": "application/text", "Content-Encoding": "UTF-8"}
 
 
+class Node:
+    def __init__(self, id, published, last_status, address):
+        self.id = id
+        self.published = published
+        self.last_status = last_status
+        self.address = address
+
+
+class Callback:
+    @asyncio.coroutine
+    def call(self, node: Node):
+        pass
+
+
+class ThreadManager:
+    def __init__(self, queue, executor):
+        self.queue = queue
+        self.executor = executor
+
+    def add_element(self, method):
+        if method is not None:
+            self.queue.run_until_complete(self._add_element(method))
+
+    def stop(self):
+        self.queue.close()
+
+    @asyncio.coroutine
+    async def _add_element(self, method):
+        if method is not None:
+            self.queue.run_in_executor(self.executor, method)
+
+
 class PyTOR:
     def __init__(self, queue=asyncio.get_event_loop(), executor=ThreadPoolExecutor()):
         self.thread_manager = ThreadManager(queue=queue, executor=executor)
 
-    def start(self, callback):
+    def start(self, callback: Callback):
         if callback is None:
             pass
 
@@ -19,8 +51,7 @@ class PyTOR:
         finally:
             self.thread_manager.stop()
 
-    @asyncio.coroutine
-    def _start(self, callback):
+    def _start(self, callback: Callback):
         response = None
         queue = asyncio.get_event_loop()
 
@@ -63,7 +94,7 @@ class PyTOR:
                 if address is None:
                     continue
 
-                queue.run_until_complete(callback(Node(id=node, published=published, last_status=last,
+                queue.run_until_complete(callback.call(Node(id=node, published=published, last_status=last,
                                                        address=address)))
 
                 node = None
@@ -76,29 +107,3 @@ class PyTOR:
                 response.close()
 
             queue.close()
-
-
-class Node:
-    def __init__(self, id, published, last_status, address):
-        self.id = id
-        self.published = published
-        self.last_status = last_status
-        self.address = address
-
-
-class ThreadManager:
-    def __init__(self, queue, executor):
-        self.queue = queue
-        self.executor = executor
-
-    def add_element(self, method):
-        if method is not None:
-            self.queue.run_until_complete(self._add_element(method))
-
-    def stop(self):
-        self.queue.close()
-
-    @asyncio.coroutine
-    async def _add_element(self, method):
-        if method is not None:
-            self.queue.run_in_executor(self.executor, method)
